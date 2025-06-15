@@ -1,4 +1,4 @@
-# Chatbot del Museo MAC - Backend con IA
+# Chatbot del Museo MAC
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg) 
 ![FastAPI](https://img.shields.io/badge/Framework-FastAPI-green.svg)
@@ -23,6 +23,4 @@ python chroma_setup.py
 DEEPSEEK_API_KEY=tu_clave
 ```
 
-~~~
 Nota: Requiere cuenta en DeepSeek Platform
-~~~
