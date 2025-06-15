@@ -1,4 +1,4 @@
-# Chatbot del Museo MAC
+# Chatbot del Museo MAC (Arti)
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg) 
 ![FastAPI](https://img.shields.io/badge/Framework-FastAPI-green.svg)
