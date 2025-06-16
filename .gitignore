@@ -197,3 +197,13 @@ cython_debug/
 /mac_db
 mac_db
 mac_db/
+
+# Frontend    
+**/node_modules/   
+**/.next/         
+**/dist/          
+**/.vercel/       
+**/.env.local    
+**/.env.development
+**/.env.production
+**/*.log        
