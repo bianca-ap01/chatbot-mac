@@ -70,7 +70,6 @@ export default function MuseumApp() {
     "¿Qué obras hay en el museo?",
     "Cuéntame sobre Fernando Bryce",
     "¿Qué es el arte Shipibo-Konibo?",
-    "¿Cuánto tiempo necesito para la visita?",
     "¿Qué significa el Retablo Ayacuchano?",
   ]
 
@@ -145,14 +144,12 @@ export default function MuseumApp() {
     }
   }
 
-  // Function to send a message to the backend and retrieve response
  const handleSubmitWithBackendResponse = async (event: React.FormEvent) => {
   event.preventDefault();
   if (isLoading || !input.trim()) return;
 
   const message = input;
-  setIsLoading(true);
-
+  
   // Agregar mensaje del usuario
   const userMessage = {
     id: Date.now().toString(),
@@ -163,7 +160,14 @@ export default function MuseumApp() {
 
   setMessages((prev) => [...prev, userMessage]);
   setInput("");
+  
+  // Llamar al handler del backend
+  await handleBackendRequest(message);
+};
 
+const handleBackendRequest = async (message: string) => {
+  setIsLoading(true);
+  
   try {
     // Preparar historial de mensajes para el backend
     const messageHistory = messages
@@ -210,6 +214,7 @@ export default function MuseumApp() {
     setIsLoading(false);
   }
 };
+
 
   // Function to process Markdown text
   const processMarkdownText = (text: string) => {
@@ -487,7 +492,7 @@ export default function MuseumApp() {
             {/* Chat */}
             <div className="flex flex-col h-[calc(100vh-80px)]">
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.length === 0 && (
+                {(
                     <div className="text-center py-8">
                       <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center mx-auto mb-4 relative">
                         <span className="text-white font-bold text-xl">A</span>
@@ -499,23 +504,34 @@ export default function MuseumApp() {
                       </p>
 
                       <div className="space-y-4">
-                        <p className="text-base font-semibold text-black">Pregúntame sobre:</p>
+                        <p className="text-base font-semibold text-black">¿No sabes qué preguntar? Prueba con esto:</p>
                         <div className="grid grid-cols-1 gap-2 px-4">
-                          {preguntasRapidas.map((pregunta, index) => (
-                              <Button
-                                  key={index}
-                                  variant="outline"
-                                  onClick={() => {
-                                    setInput(pregunta)
-                                    const event = new Event("submit") as any
-                                    handleSubmitWithBackendResponse(event)
-                                  }}
-                                  className="text-sm hover:bg-black hover:text-white border border-gray-300 hover:border-black transition-all rounded-lg py-3 px-4 text-left justify-start font-medium w-full"
-                                  disabled={isLoading}
-                              >
-                                {pregunta}
-                              </Button>
-                          ))}
+                        {preguntasRapidas.map((pregunta, index) => (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            onClick={() => {
+                              setInput(pregunta);
+                              // Enviar inmediatamente la pregunta
+                              const userMessage = {
+                                id: Date.now().toString(),
+                                role: "user" as const,
+                                content: pregunta,
+                                createdAt: new Date(),
+                              };
+                              
+                              setMessages((prev) => [...prev, userMessage]);
+                              setInput("");
+                              
+                              // Llamar directamente al handler del backend
+                              handleBackendRequest(pregunta);
+                            }}
+                            className="text-sm hover:bg-black hover:text-white border border-gray-300 hover:border-black transition-all rounded-lg py-3 px-4 text-left justify-start font-medium w-full"
+                            disabled={isLoading}
+                          >
+                            {pregunta}
+                          </Button>
+                        ))}
                         </div>
                       </div>
                     </div>
