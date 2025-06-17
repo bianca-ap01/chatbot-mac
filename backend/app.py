@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware  # Importa CORSMiddleware
 from pydantic import BaseModel
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -22,6 +23,15 @@ app = FastAPI(
     version="2.1",
     docs_url="/docs",
     redoc_url=None
+)
+
+# Configuración de CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Aceptar solicitudes de todos los orígenes
+    allow_credentials=True,
+    allow_methods=["*"],  # Aceptar todos los métodos HTTP (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Aceptar todos los encabezados
 )
 
 # Configuración ChromaDB
