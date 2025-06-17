@@ -46,3 +46,8 @@ npm install
 npm run dev
 ```
 
+En el archivo `route.ts` se encuentra la conexión con el backend. Dicho archivo se encuentra en la siguiente ruta:
+
+```bash
+cd frontend/app/api/chat
+```
