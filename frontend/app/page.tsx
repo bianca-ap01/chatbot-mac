@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { MessageCircle, Send, X, ArrowRight, Clock, MapPin, Palette } from "lucide-react"
 import Image from "next/image"
-import React from "react"
+import type React from "react"
 
 export default function MuseumApp() {
   const [showChat, setShowChat] = useState(false)
@@ -73,6 +73,22 @@ export default function MuseumApp() {
     "¿Cuánto tiempo necesito para la visita?",
     "¿Qué significa el Retablo Ayacuchano?",
   ]
+
+  // Componente de animación de typing
+  const TypingAnimation = () => (
+      <div className="flex justify-start">
+        <div className="max-w-[85%] p-3 rounded-lg bg-gray-50 border border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+            </div>
+            <span className="text-sm text-gray-600">Arti está escribiendo...</span>
+          </div>
+        </div>
+      </div>
+  )
 
   // Función de fallback para usar la API route local
   const handleSubmitWithFallback = async (message: string) => {
@@ -151,7 +167,7 @@ export default function MuseumApp() {
     try {
       console.log("Sending request to backend with message:", message)
 
-      const backendResponse = await fetch("https://cded-190-239-72-156.ngrok-free.app/chat", {
+      const backendResponse = await fetch("https://afc5-38-187-27-14.ngrok-free.app/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -282,7 +298,7 @@ export default function MuseumApp() {
             <div key={index} className="flex border-b border-gray-200 py-2">
               {cells.map((cell, cellIndex) => (
                   <div key={cellIndex} className="flex-1 px-2 text-sm">
-                    {processInlineMarkdown(cell.trim())}}
+                    {processInlineMarkdown(cell.trim())}
                   </div>
               ))}
             </div>
@@ -305,82 +321,125 @@ export default function MuseumApp() {
 
   // Function to process inline markdown (bold, italic, code, links)
   const processInlineMarkdown = (text: string) => {
-    const parts = []
-    const currentIndex = 0
+    // Si el texto está vacío, retornarlo tal como está
+    if (!text || typeof text !== "string") {
+      return text
+    }
 
-    // Regex patterns for inline markdown
+    const result: (string | JSX.Element)[] = []
+    const currentText = text
+    let keyCounter = 0
+
+    // Procesar cada patrón uno por uno para evitar conflictos
     const patterns = [
       {
+        name: "bold",
         regex: /\*\*(.*?)\*\*/g,
-        component: (match: string, content: string) => <strong className="font-bold text-black">{content}</strong>,
-      },
-      { regex: /\*(.*?)\*/g, component: (match: string, content: string) => <em className="italic">{content}</em> },
-      {
-        regex: /`(.*?)`/g,
-        component: (match: string, content: string) => (
-            <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">{content}</code>
+        component: (content: string, key: string) => (
+            <strong key={key} className="font-bold text-black">
+              {content}
+            </strong>
         ),
       },
       {
+        name: "italic",
+        regex: /\*((?!\*)(.*?))\*/g, // Evitar que capture ** como *
+        component: (content: string, key: string) => (
+            <em key={key} className="italic">
+              {content}
+            </em>
+        ),
+      },
+      {
+        name: "code",
+        regex: /`(.*?)`/g,
+        component: (content: string, key: string) => (
+            <code key={key} className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">
+              {content}
+            </code>
+        ),
+      },
+      {
+        name: "strikethrough",
+        regex: /~~(.*?)~~/g,
+        component: (content: string, key: string) => (
+            <del key={key} className="line-through text-gray-500">
+              {content}
+            </del>
+        ),
+      },
+      {
+        name: "highlight",
+        regex: /==(.*?)==/g,
+        component: (content: string, key: string) => (
+            <mark key={key} className="bg-yellow-200 px-1">
+              {content}
+            </mark>
+        ),
+      },
+      {
+        name: "link",
         regex: /\[([^\]]+)\]$$([^)]+)$$/g,
-        component: (match: string, text: string, url: string) => (
-            <a href={url} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+        component: (text: string, url: string, key: string) => (
+            <a key={key} href={url} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
               {text}
             </a>
         ),
       },
-      {
-        regex: /~~(.*?)~~/g,
-        component: (match: string, content: string) => <del className="line-through text-gray-500">{content}</del>,
-      },
-      {
-        regex: /==(.*?)==/g,
-        component: (match: string, content: string) => <mark className="bg-yellow-200 px-1">{content}</mark>,
-      },
     ]
 
-    const workingText = text
-    const replacements: Array<{ start: number; end: number; component: JSX.Element }> = []
-
-    // Find all patterns
-    patterns.forEach((pattern, patternIndex) => {
+    // Función para procesar un patrón específico
+    const processPattern = (text: string, pattern: any) => {
+      const parts: (string | JSX.Element)[] = []
+      let lastIndex = 0
       let match
-      const regex = new RegExp(pattern.regex.source, pattern.regex.flags)
 
-      while ((match = regex.exec(workingText)) !== null) {
-        const component = pattern.component(match[0], match[1], match[2])
-        replacements.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          component: React.cloneElement(component, { key: `${patternIndex}-${match.index}` }),
-        })
-      }
-    })
+      // Reset regex
+      pattern.regex.lastIndex = 0
 
-    // Sort replacements by position
-    replacements.sort((a, b) => a.start - b.start)
+      while ((match = pattern.regex.exec(text)) !== null) {
+        // Agregar texto antes del match
+        if (match.index > lastIndex) {
+          parts.push(text.slice(lastIndex, match.index))
+        }
 
-    // Build the result
-    let lastIndex = 0
-    const result: (string | JSX.Element)[] = []
+        // Crear el componente
+        if (pattern.name === "link") {
+          parts.push(pattern.component(match[1], match[2], `${pattern.name}-${keyCounter++}`))
+        } else {
+          parts.push(pattern.component(match[1], `${pattern.name}-${keyCounter++}`))
+        }
 
-    replacements.forEach((replacement, index) => {
-      // Add text before the replacement
-      if (replacement.start > lastIndex) {
-        result.push(workingText.slice(lastIndex, replacement.start))
+        lastIndex = match.index + match[0].length
       }
 
-      // Add the component
-      result.push(replacement.component)
-      lastIndex = replacement.end
-    })
+      // Agregar texto restante
+      if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex))
+      }
 
-    // Add remaining text
-    if (lastIndex < workingText.length) {
-      result.push(workingText.slice(lastIndex))
+      return parts.length > 0 ? parts : [text]
     }
 
-    return result.length > 0 ? result : text
+    // Procesar todos los patrones
+    let currentResult: (string | JSX.Element)[] = [currentText]
+
+    patterns.forEach((pattern) => {
+      const newResult: (string | JSX.Element)[] = []
+
+      currentResult.forEach((part) => {
+        if (typeof part === "string") {
+          const processed = processPattern(part, pattern)
+          newResult.push(...processed)
+        } else {
+          newResult.push(part)
+        }
+      })
+
+      currentResult = newResult
+    })
+
+    return currentResult.length === 1 && typeof currentResult[0] === "string" ? currentResult[0] : currentResult
   }
 
   // Function to render message content with markdown
@@ -404,11 +463,15 @@ export default function MuseumApp() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center relative">
                   <span className="text-white font-bold text-lg">A</span>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                  <div
+                      className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                          isLoading ? "bg-yellow-500 animate-pulse" : "bg-green-500"
+                      }`}
+                  ></div>
                 </div>
                 <div>
                   <h1 className="text-lg font-bold text-black">Arti</h1>
-                  <p className="text-xs text-gray-500">Guía Virtual MAC Lima</p>
+                  <p className="text-xs text-gray-500">{isLoading ? "Escribiendo..." : "Guía Virtual MAC Lima"}</p>
                 </div>
               </div>
               <div className="w-10"></div>
@@ -441,6 +504,7 @@ export default function MuseumApp() {
                                     handleSubmitWithBackendResponse(event)
                                   }}
                                   className="text-sm hover:bg-black hover:text-white border border-gray-300 hover:border-black transition-all rounded-lg py-3 px-4 text-left justify-start font-medium w-full"
+                                  disabled={isLoading}
                               >
                                 {pregunta}
                               </Button>
@@ -462,43 +526,46 @@ export default function MuseumApp() {
                         ) : (
                             <div>
                               <div className="text-gray-800">{renderMessageContent(message.content)}</div>
-                              {message.relevantWorks && message.relevantWorks.length > 0 && (
-                                  <div className="space-y-3 mt-4">
-                                    <p className="text-sm font-medium text-gray-600">Obras relacionadas:</p>
-                                    {message.relevantWorks.map((work) => {
-                                      const obra = obrasReales.find((o) => o.id === work.id)
-                                      if (!obra) return null
+                              {/*{message.relevantWorks && message.relevantWorks.length > 0 && (*/}
+                              {/*    <div className="space-y-3 mt-4">*/}
+                              {/*      <p className="text-sm font-medium text-gray-600">Obras relacionadas:</p>*/}
+                              {/*      {message.relevantWorks.map((work) => {*/}
+                              {/*        const obra = obrasReales.find((o) => o.id === work.id)*/}
+                              {/*        if (!obra) return null*/}
 
-                                      return (
-                                          <div
-                                              key={work.id}
-                                              className="bg-white rounded-lg border border-gray-200 overflow-hidden"
-                                          >
-                                            <div className="aspect-video relative">
-                                              <Image
-                                                  src={obra.imagen || "/placeholder.svg"}
-                                                  alt={obra.titulo}
-                                                  fill
-                                                  className="object-cover"
-                                              />
-                                            </div>
-                                            <div className="p-3">
-                                              <h4 className="font-semibold text-sm text-black">{obra.titulo}</h4>
-                                              <p className="text-xs text-gray-600">
-                                                {obra.artista} • {obra.año}
-                                              </p>
-                                              <p className="text-xs text-gray-500 mt-1">{obra.tecnica}</p>
-                                            </div>
-                                          </div>
-                                      )
-                                    })}
-                                  </div>
-                              )}
+                              {/*        return (*/}
+                              {/*            <div*/}
+                              {/*                key={work.id}*/}
+                              {/*                className="bg-white rounded-lg border border-gray-200 overflow-hidden"*/}
+                              {/*            >*/}
+                              {/*              <div className="aspect-video relative">*/}
+                              {/*                <Image*/}
+                              {/*                    src={obra.imagen || "/placeholder.svg"}*/}
+                              {/*                    alt={obra.titulo}*/}
+                              {/*                    fill*/}
+                              {/*                    className="object-cover"*/}
+                              {/*                />*/}
+                              {/*              </div>*/}
+                              {/*              <div className="p-3">*/}
+                              {/*                <h4 className="font-semibold text-sm text-black">{obra.titulo}</h4>*/}
+                              {/*                <p className="text-xs text-gray-600">*/}
+                              {/*                  {obra.artista} • {obra.año}*/}
+                              {/*                </p>*/}
+                              {/*                <p className="text-xs text-gray-500 mt-1">{obra.tecnica}</p>*/}
+                              {/*              </div>*/}
+                              {/*            </div>*/}
+                              {/*        )*/}
+                              {/*      })}*/}
+                              {/*    </div>*/}
+                              {/*)}*/}
                             </div>
                         )}
                       </div>
                     </div>
                 ))}
+
+                {/* Animación de typing cuando está cargando */}
+                {isLoading && <TypingAnimation />}
               </div>
 
               {/* Chat Input */}
@@ -507,14 +574,14 @@ export default function MuseumApp() {
                   <Input
                       value={input}
                       onChange={handleInputChange}
-                      placeholder="Pregúntale a Arti sobre el MAC..."
+                      placeholder={isLoading ? "Arti está escribiendo..." : "Pregúntale a Arti sobre el MAC..."}
                       className="flex-1 border border-gray-300 focus:border-black transition-colors rounded-lg py-3 px-4"
                       disabled={isLoading}
                   />
                   <Button
                       type="submit"
-                      disabled={isLoading}
-                      className="bg-black hover:bg-gray-800 text-white transition-colors rounded-lg px-4 py-3"
+                      disabled={isLoading || !input.trim()}
+                      className="bg-black hover:bg-gray-800 text-white transition-colors rounded-lg px-4 py-3 disabled:opacity-50"
                   >
                     <Send className="h-4 w-4" />
                   </Button>
