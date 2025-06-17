@@ -146,63 +146,70 @@ export default function MuseumApp() {
   }
 
   // Function to send a message to the backend and retrieve response
-  const handleSubmitWithBackendResponse = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (isLoading || !input.trim()) return
+ const handleSubmitWithBackendResponse = async (event: React.FormEvent) => {
+  event.preventDefault();
+  if (isLoading || !input.trim()) return;
 
-    const message = input
-    setIsLoading(true)
+  const message = input;
+  setIsLoading(true);
 
-    // Agregar mensaje del usuario
-    const userMessage = {
-      id: Date.now().toString(),
-      role: "user" as const,
-      content: message,
-      createdAt: new Date(),
+  // Agregar mensaje del usuario
+  const userMessage = {
+    id: Date.now().toString(),
+    role: "user" as const,
+    content: message,
+    createdAt: new Date(),
+  };
+
+  setMessages((prev) => [...prev, userMessage]);
+  setInput("");
+
+  try {
+    // Preparar historial de mensajes para el backend
+    const messageHistory = messages
+      .filter(msg => msg.role !== "assistant" || !msg.content.includes("¿Deseas que contacte a un guía humano?"))
+      .map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+    const backendResponse = await fetch("http://127.0.0.1:8000/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+        Accept: "application/json",
+      },
+      mode: "cors",
+      body: JSON.stringify({ 
+        message: message,
+        message_history: messageHistory 
+      }),
+    });
+
+    if (backendResponse.ok) {
+      const data = await backendResponse.json();
+      console.log("Backend Response:", data);
+
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant" as const,
+        content: data.response || "Respuesta recibida sin contenido",
+        createdAt: new Date(),
+        relevantWorks: data.relevant_works || [],
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } else {
+      throw new Error(`Backend responded with status: ${backendResponse.status}`);
     }
-
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-
-    try {
-      console.log("Sending request to backend with message:", message)
-
-      const backendResponse = await fetch("https://afc5-38-187-27-14.ngrok-free.app/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-          Accept: "application/json",
-        },
-        mode: "cors",
-        body: JSON.stringify({ message: message }),
-      })
-
-      if (backendResponse.ok) {
-        const data = await backendResponse.json()
-        console.log("Backend Response:", data)
-
-        const assistantMessage = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant" as const,
-          content: data.response || "Respuesta recibida sin contenido",
-          createdAt: new Date(),
-          relevantWorks: data.relevant_works || [],
-        }
-
-        setMessages((prev) => [...prev, assistantMessage])
-      } else {
-        throw new Error(`Backend responded with status: ${backendResponse.status}`)
-      }
-    } catch (error) {
-      console.error("Primary endpoint failed, trying fallback:", error)
-
-      // Intentar con el fallback
-      await handleSubmitWithFallback(message)
-    } finally {
-      setIsLoading(false)
-    }
+  } catch (error) {
+    console.error("Primary endpoint failed, trying fallback:", error);
+    await handleSubmitWithFallback(message);
+  } finally {
+    setIsLoading(false);
   }
+};
 
   // Function to process Markdown text
   const processMarkdownText = (text: string) => {

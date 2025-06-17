@@ -51,6 +51,7 @@ DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 
 class ChatRequest(BaseModel):
     message: str
+    message_history: Optional[List[Dict[str, str]]] = None  # Nuevo campo para historial
     zona_filter: Optional[str] = None
     max_results: Optional[int] = 4
 
@@ -81,25 +82,38 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"message": "Ocurrió un error interno. Por favor intenta nuevamente."}
     )
 
-def build_deepseek_payload(context: str, user_message: str) -> Dict[str, Any]:
-    """Construye el payload para la API de DeepSeek"""
+def build_deepseek_payload(context: str, user_message: str, message_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
+    """Construye el payload para la API de DeepSeek con historial de contexto"""
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT.format(context=context)
+        }
+    ]
+    
+    # Agregar historial de mensajes si existe (filtrando para asegurar formato correcto)
+    if message_history:
+        for msg in message_history:
+            if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+    
+    # Agregar el último mensaje del usuario
+    messages.append({
+        "role": "user",
+        "content": user_message
+    })
+    
     return {
-        "model": "deepseek-v3",
-        "messages": [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT.format(context=context)
-            },
-            {
-                "role": "user",
-                "content": user_message
-            }
-        ],
-        "temperature": 0.3,
-        "max_tokens": 1000,
+        "model": "deepseek-chat",  # Cambiado a deepseek-chat
+        "messages": messages,
+        "temperature": 0.7,  # Ajustado para más creatividad
+        "max_tokens": 512,  # Reducido a un valor seguro
         "stream": False
     }
-
+    
 @app.post("/chat", response_model=Dict[str, Any])
 async def chat_endpoint(chat_request: ChatRequest):
     try:
@@ -129,29 +143,18 @@ async def chat_endpoint(chat_request: ChatRequest):
         # Preparar contexto
         context = "\n".join(f"- {doc}" for doc in results["documents"][0])
         
-        # Llamar a DeepSeek con el formato correcto
+        # Llamar a DeepSeek con el historial de mensajes
         headers = {
             "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
         
-        payload = {
-            "model": "deepseek-chat",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": SYSTEM_PROMPT.format(context=context)
-                },
-                {
-                    "role": "user",
-                    "content": chat_request.message
-                }
-            ],
-            "temperature": 0.7,
-            "max_tokens": 200,
-            "stream": False
-        }
+        payload = build_deepseek_payload(
+            context=context,
+            user_message=chat_request.message,
+            message_history=chat_request.message_history
+        )
         
         response = requests.post(
             DEEPSEEK_API_URL,
