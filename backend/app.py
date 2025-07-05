@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 from typing import Optional, List, Dict, Any
 import logging
+import re
 
 # Configuración básica de logging
 logging.basicConfig(level=logging.INFO)
@@ -93,9 +94,97 @@ Eres 'Arti', el asistente conversacional del Museo de Arte Contemporáneo (MAC).
    - Usa 1-2 emojis máximo por respuesta (🎨, 🏛️, 🔍)
    - Invita a continuar: "¿Quieres profundizar en algún aspecto?"
 
+IMPORTANTE: Cuando menciones obras específicas o el mapa del museo, asegúrate de usar los nombres exactos para activar la visualización de imágenes.
 Contexto disponible:
 {context}
 """
+
+IMAGE_MAPPING = {
+    # Obras específicas
+    "fernando bryce": {
+        "type": "obra",
+        "filename": "el-mundo-en-llamas.png",
+        "title": "El mundo en llamas - Fernando Bryce"
+    },
+    "el mundo en llamas": {
+        "type": "obra", 
+        "filename": "el-mundo-en-llamas.png",
+        "title": "El mundo en llamas - Fernando Bryce"
+    },
+    "sara flores": {
+        "type": "obra",
+        "filename": "shao-kene-5.png", 
+        "title": "Shao Kené 5 - Sara Flores"
+    },
+    "shao kené 5": {
+        "type": "obra",
+        "filename": "shao-kene-5.png",
+        "title": "Shao Kené 5 - Sara Flores"
+    },
+    "joaquín lópez antay": {
+        "type": "obra",
+        "filename": "retablo-ayacuchano.png",
+        "title": "Retablo Ayacuchano - Joaquín López Antay"
+    },
+    "retablo ayacuchano": {
+        "type": "obra",
+        "filename": "retablo-ayacuchano.png", 
+        "title": "Retablo Ayacuchano - Joaquín López Antay"
+    },
+    "jorge eduardo eielson": {
+        "type": "obra",
+        "filename": "vertical-celeste.jpeg",
+        "title": "Vertical celeste - Jorge Eduardo Eielson"
+    },
+    "vertical celeste": {
+        "type": "obra",
+        "filename": "vertical-celeste.jpeg",
+        "title": "Vertical celeste - Jorge Eduardo Eielson"
+    },
+    # Elementos del museo
+    "mapa": {
+        "type": "mapa",
+        "filename": "mapa-museo.png",
+        "title": "Mapa del Museo MAC"
+    },
+    "plano": {
+        "type": "mapa", 
+        "filename": "mapa-museo.png",
+        "title": "Plano del Museo MAC"
+    }
+}
+
+# NUEVA FUNCIÓN COMPLETA
+def detect_images_from_text(user_message: str, ai_response: str) -> List[Dict[str, str]]:
+    """
+    Detecta TODAS las imágenes que deben mostrarse basado en el texto
+    """
+    combined_text = f"{user_message.lower()} {ai_response.lower()}"
+    found_images = []
+    
+    # Buscar todas las coincidencias exactas
+    for key, image_data in IMAGE_MAPPING.items():
+        if key in combined_text:
+            # Evitar duplicados
+            if image_data not in found_images:
+                found_images.append(image_data)
+    
+    # Buscar patrones específicos con regex
+    patterns = {
+        r"(obra|pintura|escultura).*fernando.*bryce": IMAGE_MAPPING["fernando bryce"],
+        r"(obra|pintura).*sara.*flores": IMAGE_MAPPING["sara flores"], 
+        r"(retablo|escultura).*lópez.*antay": IMAGE_MAPPING["joaquín lópez antay"],
+        r"(instalación|vertical).*eielson": IMAGE_MAPPING["jorge eduardo eielson"],
+        r"(mapa|plano|ubicación|donde|sala).*museo": IMAGE_MAPPING["mapa"]
+    }
+    
+    for pattern, image_data in patterns.items():
+        if re.search(pattern, combined_text):
+            # Evitar duplicados
+            if image_data not in found_images:
+                found_images.append(image_data)
+    
+    return found_images
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -196,13 +285,25 @@ async def chat_endpoint(chat_request: ChatRequest):
             )
         
         api_response = response.json()
-        return {
-            "response": api_response["choices"][0]["message"]["content"],
+        ai_response = api_response["choices"][0]["message"]["content"]
+        
+        # Detectar si necesitamos mostrar una imagen
+        images_metadata = detect_images_from_text(chat_request.message, ai_response)
+        
+        # Preparar respuesta manteniendo tu estructura
+        response_data = {
+            "response": ai_response,
             "relevant_works": [
                 {"id": id_, "metadata": meta} 
                 for id_, meta in zip(results["ids"][0], results["metadatas"][0])
             ]
         }
+        
+        # Agregar metadatos de imágenes si se detectaron
+        if images_metadata:
+            response_data["images_data"] = images_metadata  # ← Campo plural
+
+        return response_data
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Error de conexión: {str(e)}")

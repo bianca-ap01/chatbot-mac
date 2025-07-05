@@ -1,15 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { MessageCircle, Send, X, ArrowRight, Clock, MapPin, Palette } from "lucide-react"
+import { MessageCircle, Send, X, ArrowRight, Clock, MapPin, Palette, ChevronLeft, ChevronRight } from "lucide-react"
 import Image from "next/image"
 import type React from "react"
 
 export default function MuseumApp() {
-  const [showChat, setShowChat] = useState(false)
+  const [showChat, setShowChat] = useState(true)
   const [messages, setMessages] = useState<
       Array<{
         id: string
@@ -17,10 +17,23 @@ export default function MuseumApp() {
         content: string
         createdAt: Date
         relevantWorks?: any[]
+        imageData?: Array<{
+          type: string
+          filename: string
+          title?: string
+        }>
       }>
   >([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Ref para scroll automático
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Scroll automático cuando se agregan mensajes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
@@ -71,7 +84,83 @@ export default function MuseumApp() {
     "Cuéntame sobre Fernando Bryce",
     "¿Qué es el arte Shipibo-Konibo?",
     "¿Qué significa el Retablo Ayacuchano?",
+    "Muéstrame el mapa del museo",
   ]
+
+  // Componente de carrusel de imágenes
+  const ImageCarousel = ({ images }: { images: Array<{ type: string; filename: string; title?: string }> }) => {
+    const [currentIndex, setCurrentIndex] = useState(0)
+
+    const nextImage = () => {
+      setCurrentIndex((prev) => (prev + 1) % images.length)
+    }
+
+    const prevImage = () => {
+      setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
+    }
+
+    return (
+      <div className="mt-3 max-w-sm">
+        <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <div className="aspect-video relative">
+            <Image
+              src={`/obras/${images[currentIndex].filename}`}
+              alt={images[currentIndex].title || "Imagen"}
+              fill
+              className="object-cover"
+            />
+            
+            {/* Botones de navegación solo si hay más de una imagen */}
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-full transition-all shadow-lg"
+                  aria-label="Imagen anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-full transition-all shadow-lg"
+                  aria-label="Siguiente imagen"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                
+                {/* Indicadores */}
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
+                  {images.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentIndex(index)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        index === currentIndex ? 'bg-white' : 'bg-white bg-opacity-50'
+                      }`}
+                      aria-label={`Ir a imagen ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          
+          {images[currentIndex].title && (
+            <div className="p-3">
+              <p className="text-sm font-medium text-gray-800">
+                {images[currentIndex].title}
+              </p>
+              {images.length > 1 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {currentIndex + 1} de {images.length}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   // Componente de animación de typing
   const TypingAnimation = () => (
@@ -195,12 +284,22 @@ const handleBackendRequest = async (message: string) => {
       const data = await backendResponse.json();
       console.log("Backend Response:", data);
 
+      // Procesar múltiples imágenes del backend
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant" as const,
         content: data.response || "Respuesta recibida sin contenido",
         createdAt: new Date(),
         relevantWorks: data.relevant_works || [],
+        imageData: data.images_data ? data.images_data.map((img: any) => ({
+          type: img.type,
+          filename: img.filename,
+          title: img.title
+        })) : (data.image_data ? [{ // Fallback para compatibilidad con versión anterior
+          type: data.image_data.type,
+          filename: data.image_data.filename,
+          title: data.image_data.title
+        }] : undefined),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -214,7 +313,6 @@ const handleBackendRequest = async (message: string) => {
     setIsLoading(false);
   }
 };
-
 
   // Function to process Markdown text
   const processMarkdownText = (text: string) => {
@@ -465,13 +563,6 @@ const handleBackendRequest = async (message: string) => {
           <div className="max-w-full mx-auto">
             {/* Chat Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
-              <Button
-                  variant="ghost"
-                  onClick={() => setShowChat(false)}
-                  className="flex items-center gap-2 text-gray-600 hover:text-black hover:bg-gray-50 rounded-lg p-2"
-              >
-                <X className="h-5 w-5" />
-              </Button>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center relative">
                   <span className="text-white font-bold text-lg">A</span>
@@ -492,7 +583,7 @@ const handleBackendRequest = async (message: string) => {
             {/* Chat */}
             <div className="flex flex-col h-[calc(100vh-80px)]">
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {(
+                {messages.length === 0 && (
                     <div className="text-center py-8">
                       <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center mx-auto mb-4 relative">
                         <span className="text-white font-bold text-xl">A</span>
@@ -549,38 +640,12 @@ const handleBackendRequest = async (message: string) => {
                         ) : (
                             <div>
                               <div className="text-gray-800">{renderMessageContent(message.content)}</div>
-                              {/*{message.relevantWorks && message.relevantWorks.length > 0 && (*/}
-                              {/*    <div className="space-y-3 mt-4">*/}
-                              {/*      <p className="text-sm font-medium text-gray-600">Obras relacionadas:</p>*/}
-                              {/*      {message.relevantWorks.map((work) => {*/}
-                              {/*        const obra = obrasReales.find((o) => o.id === work.id)*/}
-                              {/*        if (!obra) return null*/}
-
-                              {/*        return (*/}
-                              {/*            <div*/}
-                              {/*                key={work.id}*/}
-                              {/*                className="bg-white rounded-lg border border-gray-200 overflow-hidden"*/}
-                              {/*            >*/}
-                              {/*              <div className="aspect-video relative">*/}
-                              {/*                <Image*/}
-                              {/*                    src={obra.imagen || "/placeholder.svg"}*/}
-                              {/*                    alt={obra.titulo}*/}
-                              {/*                    fill*/}
-                              {/*                    className="object-cover"*/}
-                              {/*                />*/}
-                              {/*              </div>*/}
-                              {/*              <div className="p-3">*/}
-                              {/*                <h4 className="font-semibold text-sm text-black">{obra.titulo}</h4>*/}
-                              {/*                <p className="text-xs text-gray-600">*/}
-                              {/*                  {obra.artista} • {obra.año}*/}
-                              {/*                </p>*/}
-                              {/*                <p className="text-xs text-gray-500 mt-1">{obra.tecnica}</p>*/}
-                              {/*              </div>*/}
-                              {/*            </div>*/}
-                              {/*        )*/}
-                              {/*      })}*/}
-                              {/*    </div>*/}
-                              {/*)}*/}
+                              
+                              {/* Renderizar carrusel de imágenes */}
+                              {message.imageData && message.imageData.length > 0 && (
+                                <ImageCarousel images={message.imageData} />
+                              )}
+                              
                             </div>
                         )}
                       </div>
@@ -589,6 +654,9 @@ const handleBackendRequest = async (message: string) => {
 
                 {/* Animación de typing cuando está cargando */}
                 {isLoading && <TypingAnimation />}
+                
+                {/* Referencia para scroll automático */}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Chat Input */}
