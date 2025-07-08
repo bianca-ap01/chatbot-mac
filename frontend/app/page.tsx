@@ -80,11 +80,11 @@ export default function MuseumApp() {
   ]
 
   const preguntasRapidas = [
+    "¿Como se usa Arti?",
     "¿Qué obras hay en el museo?",
-    "Cuéntame sobre Fernando Bryce",
-    "¿Qué es el arte Shipibo-Konibo?",
+    "Muéstrame el mapa de la sala permanente",
     "¿Qué significa el Retablo Ayacuchano?",
-    "Muéstrame el mapa del museo",
+    "Cuéntame sobre Fernando Bryce",
   ]
 
   // Componente de carrusel de imágenes

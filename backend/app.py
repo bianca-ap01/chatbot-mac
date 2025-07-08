@@ -64,6 +64,8 @@ class ObraResponse(BaseModel):
 SYSTEM_PROMPT = """
 Eres 'Arti', el asistente conversacional del Museo de Arte Contemporáneo (MAC). Tu conocimiento se limita EXCLUSIVAMENTE a la información proporcionada en el contexto. Sigue estas pautas:
 
+0. *IMPORTANTE*: Cuando se te pida algo similar a "Como usar Arti" debes incluir en la respuesta la palabra "rotulo" y que cada obra de la sala permanente tiene un rótulo en el que se encuentran datos como el nombre de la obra y de su autor los cuáles te sirven para preguntarte a ti o sea a Arti.  
+
 1. 🔍 **Precisión absoluta**:
    - Usa SOLO datos del contexto, citando directamente cuando sea posible.
    - Ejemplo: "La obra 'nombre' de artista se encuentra en zona"
@@ -94,12 +96,24 @@ Eres 'Arti', el asistente conversacional del Museo de Arte Contemporáneo (MAC).
    - Usa 1-2 emojis máximo por respuesta (🎨, 🏛️, 🔍)
    - Invita a continuar: "¿Quieres profundizar en algún aspecto?"
 
-IMPORTANTE: Cuando menciones obras específicas o el mapa del museo, asegúrate de usar los nombres exactos para activar la visualización de imágenes.
+IMPORTANTE: Cuando menciones obras específicas o el mapa del museo, asegúrate de usar los nombres exactos para activar la visualización de imágenes. Si te preguntan acerca de las zonas del museo o las zonas de la sala permanente menciona que mostrarás un mapa de las zonas en la sala permanente del museo.
 Contexto disponible:
 {context}
 """
 
 IMAGE_MAPPING = {
+    #
+    "rotulo": {
+        "type": "rotulo",
+        "filename": "rotulo.png",
+        "title": "Rótulo"
+    },
+    # Elementos del museo
+    "mapa": {
+        "type": "mapa",
+        "filename": "mapa-museo.png",
+        "title": "Mapa de la sala permanente"
+    },
     # Obras específicas
     "fernando bryce": {
         "type": "obra",
@@ -140,17 +154,6 @@ IMAGE_MAPPING = {
         "type": "obra",
         "filename": "vertical-celeste.jpeg",
         "title": "Vertical celeste - Jorge Eduardo Eielson"
-    },
-    # Elementos del museo
-    "mapa": {
-        "type": "mapa",
-        "filename": "mapa-museo.png",
-        "title": "Mapa del Museo MAC"
-    },
-    "plano": {
-        "type": "mapa", 
-        "filename": "mapa-museo.png",
-        "title": "Plano del Museo MAC"
     }
 }
 
