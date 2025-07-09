@@ -80,7 +80,7 @@ export default function MuseumApp() {
   ]
 
   const preguntasRapidas = [
-    "¿Como se usa Arti?",
+    "¿Cómo se usa Arti?",
     "¿Qué obras hay en el museo?",
     "Muéstrame el mapa de la sala permanente",
     "¿Qué significa el Retablo Ayacuchano?",
